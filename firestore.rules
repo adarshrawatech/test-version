@@ -1,0 +1,157 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required) - User's unique ID
+//   - name: string (required) - User's display name
+//   - email: string (optional) - User's email
+//   - role: string (required, enum: ['user', 'admin']) - User's role
+//   - age: number (optional) - User's age
+//   - weight: number (optional) - User's weight
+//   - height: string (optional) - User's height
+//   - hasProtocol: boolean (optional) - Whether user has an active protocol
+//   - currentDay: number (optional) - Current day in protocol
+//   - dayCompleted: map (optional) - Map of day numbers to completion status
+//   - createdAt: timestamp (required) - Creation time
+//   - updatedAt: timestamp (optional) - Last update time
+//
+// Collection: users/{userId}/protocol
+// Document ID: active
+// Fields:
+//   - timetable: string (required) - Markdown timetable
+//   - timetable_data: list (optional) - Structured timetable tasks
+//   - nutrition: string (optional) - Markdown nutrition plan
+//   - workout: string (optional) - Markdown workout plan
+//   - workout_data: map (optional) - Structured workout data
+//   - skills: string (optional) - Markdown skill roadmap
+//   - goals: string (optional) - Markdown goals
+//   - goals_data: list (optional) - Structured goals
+//   - total_days: number (optional) - Total duration of protocol
+//   - updatedAt: timestamp (optional) - Last update time
+//
+// Collection: users/{userId}/tasks
+// Document ID: {taskId}
+// Fields:
+//   - day: number (required) - Day number
+//   - taskId: string (required) - Task ID
+//   - completed: boolean (required) - Completion status
+//   - updatedAt: timestamp (optional) - Last update time
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "officialraunak14@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidString(field, maxLen) {
+      return request.resource.data[field] is string && request.resource.data[field].size() <= maxLen;
+    }
+
+    function isValidOptionalString(field, maxLen) {
+      return !(field in request.resource.data) || (request.resource.data[field] is string && request.resource.data[field].size() <= maxLen);
+    }
+
+    function isValidNumber(field, min, max) {
+      return request.resource.data[field] is number && request.resource.data[field] >= min && request.resource.data[field] <= max;
+    }
+
+    function isValidOptionalNumber(field, min, max) {
+      return !(field in request.resource.data) || (request.resource.data[field] is number && request.resource.data[field] >= min && request.resource.data[field] <= max);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'name', 'role', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() <= 100 &&
+             data.role in ['user', 'admin'] &&
+             isValidOptionalNumber('age', 0, 150) &&
+             isValidOptionalNumber('weight', 0, 1000) &&
+             isValidOptionalString('height', 20) &&
+             isValidOptionalNumber('currentDay', 1, 365);
+    }
+
+    function isValidProtocol(data) {
+      return hasRequiredFields(['timetable']) &&
+             data.timetable is string && data.timetable.size() <= 10000 &&
+             isValidOptionalString('nutrition', 10000) &&
+             isValidOptionalString('workout', 10000) &&
+             isValidOptionalString('skills', 10000) &&
+             isValidOptionalString('goals', 10000) &&
+             isValidOptionalNumber('total_days', 1, 365);
+    }
+
+    function isValidTask(data) {
+      return hasRequiredFields(['day', 'taskId', 'completed']) &&
+             data.day is number && data.day >= 1 &&
+             data.taskId is string && data.taskId.size() <= 100 &&
+             data.completed is bool;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+
+      match /protocol/active {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) && isValidProtocol(request.resource.data);
+      }
+
+      match /tasks/{taskId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) && isValidTask(request.resource.data);
+      }
+      
+      match /stats/{date} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId);
+      }
+    }
+
+    match /protocols/{protocolId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

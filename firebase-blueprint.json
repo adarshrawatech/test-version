@@ -1,0 +1,94 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User's personal information and physical stats.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "age": { "type": "number" },
+        "weight": { "type": "number" },
+        "height": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "hasProtocol": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "role"]
+    },
+    "Protocol": {
+      "title": "User Protocol",
+      "description": "The AI-generated or user-pasted timetable and nutrition plan.",
+      "type": "object",
+      "properties": {
+        "timetable": { "type": "string" },
+        "timetable_data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "time": { "type": "string" },
+              "title": { "type": "string" },
+              "description": { "type": "string" },
+              "completed": { "type": "boolean" }
+            }
+          }
+        },
+        "nutrition": { "type": "string" },
+        "workout": { "type": "string" },
+        "workout_data": { "type": "object" },
+        "skills": { "type": "string" },
+        "goals": { "type": "string" },
+        "goals_data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "week": { "type": "number" },
+              "title": { "type": "string" },
+              "goals": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "total_days": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["timetable"]
+    },
+    "Stats": {
+      "title": "Biometric Stats",
+      "description": "Simulated smartwatch and screen time data.",
+      "type": "object",
+      "properties": {
+        "heartRate": { "type": "number" },
+        "steps": { "type": "number" },
+        "screenTime": { "type": "number" },
+        "sleepHours": { "type": "number" },
+        "date": { "type": "string", "format": "date" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data."
+    },
+    "/users/{userId}/protocol/active": {
+      "schema": "Protocol",
+      "description": "User's active protocol."
+    },
+    "/users/{userId}/stats/{date}": {
+      "schema": "Stats",
+      "description": "Daily biometric stats."
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "User's daily tasks."
+    },
+    "/protocols/current": {
+      "schema": "Protocol",
+      "description": "The global or user-specific active protocol."
+    }
+  }
+}

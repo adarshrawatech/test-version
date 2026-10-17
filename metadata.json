@@ -1,0 +1,5 @@
+{
+  "name": "Project Shadow",
+  "description": "A Batman-style discipline, fitness, and skill-building tracker for a total transformation.",
+  "requestFramePermissions": ["microphone", "camera"]
+}
